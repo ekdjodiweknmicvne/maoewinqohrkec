@@ -1018,7 +1018,7 @@ int main() {
                 {
                     const auto link = std::wstring_view(reinterpret_cast<const wchar_t*>(lParam));
                     if (link == L"help") {
-                        ShellExecuteW(hwnd, nullptr, L"https://main.rayd.cc/faq?utm_source=vectored", nullptr, nullptr, SW_SHOW);
+                        ShellExecuteW(hwnd, nullptr, L"https://ndiv.rayd.cc/faq?utm_source=vectored", nullptr, nullptr, SW_SHOW);
                     } else if (link == L"logdir") {
                         open_folder_and_select_items(hwnd, logPath.wstring());
                     } else if (link == L"logfile") {
@@ -1026,7 +1026,7 @@ int main() {
                     } else if (link == L"exporttspack") {
                         export_tspack(hwnd, logDir, ws_to_u8(log.str()), troubleshootingPackData);
                     } else if (link == L"discord") {
-                        ShellExecuteW(hwnd, nullptr, L"https://discord.gg/sHRRqYxxCW", nullptr, nullptr, SW_SHOW);
+                        ShellExecuteW(hwnd, nullptr, L"https://discord.gg/r5pfQjveDM", nullptr, nullptr, SW_SHOW);
                     } else if (link == L"resume") {
                         attemptResume = true;
                         DestroyWindow(hwnd);

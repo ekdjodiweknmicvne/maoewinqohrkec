@@ -27,7 +27,7 @@ internal class PluginRepository
     /// <summary>
     /// The URL of the official main repository.
     /// </summary>
-    public const string MainRepoUrl = "https://main.rayd.cc/Plugin/PluginMaster";
+    public const string MainRepoUrl = "https://ndiv.rayd.cc/Plugin/PluginMaster";
 
     private const int HttpRequestTimeoutSeconds = 20;
 

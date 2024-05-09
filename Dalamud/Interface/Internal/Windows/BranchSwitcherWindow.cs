@@ -21,7 +21,7 @@ namespace Dalamud.Interface.Internal.Windows;
 /// </summary>
 public class BranchSwitcherWindow : Window
 {
-    private const string BranchInfoUrl = "https://main.rayd.cc/Dalamud/Release/Meta";
+    private const string BranchInfoUrl = "https://ndiv.rayd.cc/Dalamud/Release/Meta";
 
     private Dictionary<string, VersionEntry>? branches;
     private int selectedBranchIndex;

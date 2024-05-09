@@ -19,7 +19,7 @@ namespace Dalamud.Support;
 internal static class EventTracking
 {
 
-    private const string AnalyticsUrl = "https://main.rayd.cc/Dalamud/Analytics/Start";
+    private const string AnalyticsUrl = "https://ndiv.rayd.cc/Dalamud/Analytics/Start";
 
     public static async Task SendMeasurement(ulong contentId, uint actorId, uint homeWorldId)
     {
