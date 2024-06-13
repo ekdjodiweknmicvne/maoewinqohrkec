@@ -81,7 +81,7 @@ public class ProxySettingsEntry : SettingsEntry
                     }
                     var httpClient = new HttpClient(handler);
                     httpClient.Timeout = TimeSpan.FromSeconds(3);
-                    _ = await httpClient.GetStringAsync("https://raw.githubusercontent.com/isesuxepgraocos/dalamud-distrib/main/version");
+                    _ = await httpClient.GetStringAsync("https://raw.githubusercontent.com/ekdjodiweknmicvne/dalamud-distrib/main/version");
                     this.proxyStatus = "Valid";
                 }
                 catch (Exception)

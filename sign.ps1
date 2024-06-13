@@ -45,7 +45,7 @@ function Sign-File {
     }
 
     # Code-sign the file using signtool
-    Write-Host "Code-signing file '$FilePath'...."
+    Write-Host "Code-signing file '$FilePath'..."
     & $signtoolPath sign /tr http://timestamp.digicert.com /td sha256 /v /fd sha256 /f $certificatePath /p $certificatePassword $FilePath
 }
 

@@ -163,6 +163,12 @@ internal sealed class DalamudConfiguration : IInternalDisposableService
     [Obsolete("It happens that nobody touched this setting", true)]
     public float FontGammaLevel { get; set; } = 1.4f;
 
+    /// <summary>Gets or sets the opacity of the IME state indicator.</summary>
+    /// <value>0 will hide the state indicator. 1 will make the state indicator fully visible. Values outside the
+    /// range will be clamped to [0, 1].</value>
+    /// <remarks>See <see cref="SeIconChar.ImeHiragana"/> to <see cref="SeIconChar.ImeChineseLatin"/>.</remarks>
+    public float ImeStateIndicatorOpacity { get; set; } = 1f;
+
     /// <summary>
     /// Gets or sets a value indicating whether or not plugin UI should be hidden.
     /// </summary>
@@ -222,6 +228,11 @@ internal sealed class DalamudConfiguration : IInternalDisposableService
     /// Gets or sets the number of lines to keep for the Dalamud Console window.
     /// </summary>
     public int LogLinesLimit { get; set; } = 10000;
+
+    /// <summary>
+    /// Gets or sets a list of commands that have been run in the console window.
+    /// </summary>
+    public List<string> LogCommandHistory { get; set; } = new();
 
     /// <summary>
     /// Gets or sets a value indicating whether or not the dev bar should open at startup.

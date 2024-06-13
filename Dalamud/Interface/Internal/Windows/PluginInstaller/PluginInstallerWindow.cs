@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using CheapLoc;
 
 using Dalamud.Configuration.Internal;
+using Dalamud.Console;
 using Dalamud.Game.Command;
 using Dalamud.Interface.Animation.EasingFunctions;
 using Dalamud.Interface.Colors;
@@ -365,10 +366,13 @@ internal class PluginInstallerWindow : Window, IDisposable
     /// <returns>A value indicating whether to continue with the next task.</returns>
     public bool DisplayErrorContinuation(Task task, object state)
     {
-        if (task.IsFaulted)
-        {
-            var errorModalMessage = state as string;
+        if (!task.IsFaulted && !task.IsCanceled)
+            return true;
+        
+        var newErrorMessage = state as string;
 
+        if (task.Exception != null)
+        {
             foreach (var ex in task.Exception.InnerExceptions)
             {
                 if (ex is PluginException)
@@ -376,7 +380,7 @@ internal class PluginInstallerWindow : Window, IDisposable
                     Log.Error(ex, "Plugin installer threw an error");
 #if DEBUG
                     if (!string.IsNullOrEmpty(ex.Message))
-                        errorModalMessage += $"\n\n{ex.Message}";
+                        newErrorMessage += $"\n\n{ex.Message}";
 #endif
                 }
                 else
@@ -384,17 +388,18 @@ internal class PluginInstallerWindow : Window, IDisposable
                     Log.Error(ex, "Plugin installer threw an unexpected error");
 #if DEBUG
                     if (!string.IsNullOrEmpty(ex.Message))
-                        errorModalMessage += $"\n\n{ex.Message}";
+                        newErrorMessage += $"\n\n{ex.Message}";
 #endif
                 }
             }
-
-            this.ShowErrorModal(errorModalMessage);
-
-            return false;
         }
+        
+        if (task.IsCanceled)
+            Log.Error("A task was cancelled");
 
-        return true;
+        this.ShowErrorModal(newErrorMessage ?? "An unknown error occurred.");
+
+        return false;
     }
 
     private void SetOpenPage(PluginInstallerOpenKind kind)
@@ -2462,7 +2467,8 @@ internal class PluginInstallerWindow : Window, IDisposable
             if (this.hasDevPlugins)
             {
                 ImGuiHelpers.ScaledDummy(3);
-                ImGui.TextColored(ImGuiColors.DalamudGrey, $"WorkingPluginId: {manifest.WorkingPluginId}");
+                ImGui.TextColored(ImGuiColors.DalamudGrey, $"WorkingPluginId: {plugin.EffectiveWorkingPluginId}");
+                ImGui.TextColored(ImGuiColors.DalamudGrey, $"Command prefix: {ConsoleManagerPluginUtil.GetSanitizedNamespaceName(plugin.InternalName)}");
                 ImGuiHelpers.ScaledDummy(3);
             }
 
@@ -2645,10 +2651,10 @@ internal class PluginInstallerWindow : Window, IDisposable
 
         var applicableForProfiles = plugin.Manifest.SupportsProfiles /*&& !plugin.IsDev*/;
         var profilesThatWantThisPlugin = profileManager.Profiles
-                                                       .Where(x => x.WantsPlugin(plugin.Manifest.WorkingPluginId) != null)
+                                                       .Where(x => x.WantsPlugin(plugin.EffectiveWorkingPluginId) != null)
                                                        .ToArray();
         var isInSingleProfile = profilesThatWantThisPlugin.Length == 1;
-        var isDefaultPlugin = profileManager.IsInDefaultProfile(plugin.Manifest.WorkingPluginId);
+        var isDefaultPlugin = profileManager.IsInDefaultProfile(plugin.EffectiveWorkingPluginId);
 
         // Disable everything if the updater is running or another plugin is operating
         var disabled = this.updateStatus == OperationStatus.InProgress || this.installStatus == OperationStatus.InProgress;
@@ -2683,17 +2689,17 @@ internal class PluginInstallerWindow : Window, IDisposable
 
             foreach (var profile in profileManager.Profiles.Where(x => !x.IsDefaultProfile))
             {
-                var inProfile = profile.WantsPlugin(plugin.Manifest.WorkingPluginId) != null;
+                var inProfile = profile.WantsPlugin(plugin.EffectiveWorkingPluginId) != null;
                 if (ImGui.Checkbox($"###profilePick{profile.Guid}{plugin.Manifest.InternalName}", ref inProfile))
                 {
                     if (inProfile)
                     {
-                        Task.Run(() => profile.AddOrUpdateAsync(plugin.Manifest.WorkingPluginId, plugin.Manifest.InternalName, true))
+                        Task.Run(() => profile.AddOrUpdateAsync(plugin.EffectiveWorkingPluginId, plugin.Manifest.InternalName, true))
                             .ContinueWith(this.DisplayErrorContinuation, Locs.Profiles_CouldNotAdd);
                     }
                     else
                     {
-                        Task.Run(() => profile.RemoveAsync(plugin.Manifest.WorkingPluginId))
+                        Task.Run(() => profile.RemoveAsync(plugin.EffectiveWorkingPluginId))
                             .ContinueWith(this.DisplayErrorContinuation, Locs.Profiles_CouldNotRemove);
                     }
                 }
@@ -2713,11 +2719,11 @@ internal class PluginInstallerWindow : Window, IDisposable
             if (ImGuiComponents.IconButton(FontAwesomeIcon.Times))
             {
                 // TODO: Work this out
-                Task.Run(() => profileManager.DefaultProfile.AddOrUpdateAsync(plugin.Manifest.WorkingPluginId, plugin.Manifest.InternalName, plugin.IsLoaded, false))
+                Task.Run(() => profileManager.DefaultProfile.AddOrUpdateAsync(plugin.EffectiveWorkingPluginId, plugin.Manifest.InternalName, plugin.IsLoaded, false))
                     .GetAwaiter().GetResult();
                 foreach (var profile in profileManager.Profiles.Where(x => !x.IsDefaultProfile && x.Plugins.Any(y => y.InternalName == plugin.Manifest.InternalName)))
                 {
-                    Task.Run(() => profile.RemoveAsync(plugin.Manifest.WorkingPluginId, false))
+                    Task.Run(() => profile.RemoveAsync(plugin.EffectiveWorkingPluginId, false))
                         .GetAwaiter().GetResult();
                 }
 
@@ -2742,7 +2748,7 @@ internal class PluginInstallerWindow : Window, IDisposable
             if (ImGui.IsItemHovered())
                 ImGui.SetTooltip(Locs.PluginButtonToolTip_UnloadFailed);
         }
-        else if (this.enableDisableStatus == OperationStatus.InProgress && this.enableDisableWorkingPluginId == plugin.Manifest.WorkingPluginId)
+        else if (this.enableDisableStatus == OperationStatus.InProgress && this.enableDisableWorkingPluginId == plugin.EffectiveWorkingPluginId)
         {
             ImGuiComponents.DisabledToggleButton(toggleId, this.loadingIndicatorKind == LoadingIndicatorKind.EnablingSingle);
         }
@@ -2767,9 +2773,9 @@ internal class PluginInstallerWindow : Window, IDisposable
                 {
                     // Reload the devPlugin manifest if it's a dev plugin
                     // The plugin might rely on changed values in the manifest
-                    if (plugin.IsDev)
+                    if (plugin is LocalDevPlugin devPlugin)
                     {
-                        plugin.ReloadManifest();
+                        devPlugin.ReloadManifest();
                     }
                 }
                 catch (Exception ex)
@@ -2785,13 +2791,13 @@ internal class PluginInstallerWindow : Window, IDisposable
                 {
                     this.enableDisableStatus = OperationStatus.InProgress;
                     this.loadingIndicatorKind = LoadingIndicatorKind.DisablingSingle;
-                    this.enableDisableWorkingPluginId = plugin.Manifest.WorkingPluginId;
+                    this.enableDisableWorkingPluginId = plugin.EffectiveWorkingPluginId;
 
                     Task.Run(async () =>
                     {
                         await plugin.UnloadAsync();
                         await applicableProfile.AddOrUpdateAsync(
-                            plugin.Manifest.WorkingPluginId, plugin.Manifest.InternalName, false, false);
+                            plugin.EffectiveWorkingPluginId, plugin.Manifest.InternalName, false, false);
 
                         notifications.AddNotification(Locs.Notifications_PluginDisabled(plugin.Manifest.Name), Locs.Notifications_PluginDisabledTitle, NotificationType.Success);
                     }).ContinueWith(t =>
@@ -2806,9 +2812,9 @@ internal class PluginInstallerWindow : Window, IDisposable
                     {
                         this.enableDisableStatus = OperationStatus.InProgress;
                         this.loadingIndicatorKind = LoadingIndicatorKind.EnablingSingle;
-                        this.enableDisableWorkingPluginId = plugin.Manifest.WorkingPluginId;
+                        this.enableDisableWorkingPluginId = plugin.EffectiveWorkingPluginId;
 
-                        await applicableProfile.AddOrUpdateAsync(plugin.Manifest.WorkingPluginId, plugin.Manifest.InternalName, true, false);
+                        await applicableProfile.AddOrUpdateAsync(plugin.EffectiveWorkingPluginId, plugin.Manifest.InternalName, true, false);
                         await plugin.LoadAsync(PluginLoadReason.Installer);
 
                         notifications.AddNotification(Locs.Notifications_PluginEnabled(plugin.Manifest.Name), Locs.Notifications_PluginEnabledTitle, NotificationType.Success);
@@ -2829,7 +2835,7 @@ internal class PluginInstallerWindow : Window, IDisposable
                             if (shouldUpdate)
                             {
                                 // We need to update the profile right here, because PM will not enable the plugin otherwise
-                                await applicableProfile.AddOrUpdateAsync(plugin.Manifest.WorkingPluginId, plugin.Manifest.InternalName, true, false);
+                                await applicableProfile.AddOrUpdateAsync(plugin.EffectiveWorkingPluginId, plugin.Manifest.InternalName, true, false);
                                 await this.UpdateSinglePlugin(availableUpdate);
                             }
                             else
@@ -3100,7 +3106,7 @@ internal class PluginInstallerWindow : Window, IDisposable
         if (localPlugin is LocalDevPlugin plugin)
         {
             var isInDefaultProfile =
-                Service<ProfileManager>.Get().IsInDefaultProfile(localPlugin.Manifest.WorkingPluginId);
+                Service<ProfileManager>.Get().IsInDefaultProfile(localPlugin.EffectiveWorkingPluginId);
 
             // https://colorswall.com/palette/2868/
             var greenColor = new Vector4(0x5C, 0xB8, 0x5C, 0xFF) / 0xFF;
@@ -3450,7 +3456,7 @@ internal class PluginInstallerWindow : Window, IDisposable
                 this.pluginListAvailable.Sort((p1, p2) => p1.Name.CompareTo(p2.Name));
 
                 var profman = Service<ProfileManager>.Get();
-                this.pluginListInstalled.Sort((p1, p2) => profman.IsInDefaultProfile(p1.Manifest.WorkingPluginId).CompareTo(profman.IsInDefaultProfile(p2.Manifest.WorkingPluginId)));
+                this.pluginListInstalled.Sort((p1, p2) => profman.IsInDefaultProfile(p1.EffectiveWorkingPluginId).CompareTo(profman.IsInDefaultProfile(p2.EffectiveWorkingPluginId)));
                 break;
             default:
                 throw new InvalidEnumArgumentException("Unknown plugin sort type.");

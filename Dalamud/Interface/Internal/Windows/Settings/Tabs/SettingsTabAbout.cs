@@ -239,7 +239,9 @@ Contribute at: https://github.com/goatcorp/Dalamud
     {
         var windowSize = ImGui.GetWindowSize();
 
-        ImGui.BeginChild("scrolling", Vector2.Zero, false, ImGuiWindowFlags.NoScrollbar);
+        using var child = ImRaii.Child("scrolling", new Vector2(-1, -10 * ImGuiHelpers.GlobalScale), false, ImGuiWindowFlags.NoScrollbar);
+        if (!child)
+            return;
 
         if (this.resetNow)
         {
@@ -299,8 +301,6 @@ Contribute at: https://github.com/goatcorp/Dalamud
                 ImGui.SetScrollY(0);
             }
         }
-
-        ImGui.EndChild();
 
         base.Draw();
     }
